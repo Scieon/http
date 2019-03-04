@@ -13,7 +13,6 @@ public class Httpfs {
 
     public static void main(String[] args) throws IOException {
         new Httpfs().run(args);
-
     }
 
     private void parseArgs(String[] args) {
@@ -50,11 +49,10 @@ public class Httpfs {
 
         System.out.println("Server is running!");
 
-        debug = true; // todo set debug through args
-        // todo Also set PORT!
-        // todo add path if specified
-
         while (true) {
+            StringBuilder payload = new StringBuilder();
+            String request = "";
+
             socketConnection = serverSocket.accept();
             InputStreamReader in = new InputStreamReader(socketConnection.getInputStream());
             BufferedReader reader = new BufferedReader(in);
@@ -65,17 +63,36 @@ public class Httpfs {
             while (line != null && !line.isEmpty()) {
                 if (line.contains("GET") || line.contains("POST")) {
 //                    System.out.println(line);
+                    if (line.contains("GET")) {
+                        request = "GET";
+                    } else if (line.contains("POST")) {
+                        request = "POST";
+                    }
                     urlPath = line.substring(line.indexOf("/") + 1, line.indexOf("HTTP/"));
 //                    System.out.println(urlPath);
                 }
                 line = reader.readLine();
+
             }
 
-            if (urlPath != null && !urlPath.equals(" ")) {
-                handleGetPath(out, urlPath);
-                socketConnection.close();
-            } else if (urlPath != null && urlPath.equals(" ")) {
-                handleDefaultGet(out);
+            if (request.equals("GET")) {
+                if (urlPath != null && !urlPath.equals(" ")) {
+                    handleGetPath(out, urlPath);
+                    socketConnection.close();
+                } else if (urlPath != null && urlPath.equals(" ")) {
+                    handleDefaultGet(out);
+                    socketConnection.close();
+                }
+            }
+
+            if (request.equals("POST")) {
+                System.out.println("Payload data is: " + payload.toString());
+
+                // Parse the payload for body
+
+                // Overwrite or create new file with body
+
+                // Close socket (Make sure to return status code)
                 socketConnection.close();
             }
         }
