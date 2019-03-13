@@ -54,14 +54,17 @@ public class Httpfs {
 
         while (true) {
             String request = "";
+            String content ="";
 
             socketConnection = serverSocket.accept();
             InputStreamReader in = new InputStreamReader(socketConnection.getInputStream());
             BufferedReader reader = new BufferedReader(in);
             PrintWriter out = new PrintWriter(socketConnection.getOutputStream(), true);
+            StringBuilder requestBody = new StringBuilder();
             String line = reader.readLine();
             String urlPath = null;
 
+            // Parsing Headers
             while (line != null && !line.isEmpty()) {
                 if (line.contains("GET") || line.contains("POST")) {
                     if (line.contains("GET")) {
@@ -75,6 +78,12 @@ public class Httpfs {
                 System.out.println(line);
                 line = reader.readLine();
             }
+
+            // Parsing Request Body
+            while (reader.ready()) {
+            requestBody.append((char) reader.read());
+            }
+            content = requestBody.toString();
 
             if(!secure) {
                  handleSecurity(out); 
@@ -91,7 +100,7 @@ public class Httpfs {
                 }
 
                 if (request.equals("POST")) {
-                    handlePostPath(out, urlPath);
+                    handlePostPath(out, urlPath, content);
                     socketConnection.close();
                 }
             }
@@ -228,10 +237,10 @@ public class Httpfs {
      * @param out     output stream
      * @param urlPath file path resource
      */
-    private void handlePostPath(PrintWriter out, String urlPath){
-        String[] data = {"does", "it", "override"};
+    private void handlePostPath(PrintWriter out, String urlPath, String content){
+        // String[] data = {"does", "it", "override"};
 
-        if (writeFileContent(data, urlPath)) {
+        if (writeFileContent(content, urlPath)) {
             out.print(HTTP_SUCCESS_200);
             out.print("\r\n");
             out.println();
@@ -249,15 +258,13 @@ public class Httpfs {
      * @param filePath - Path of url
      * @return true if file exists
      */
-    private boolean writeFileContent(String[] data, String filePath) {
+    private boolean writeFileContent(String data, String filePath) {
         try {
             filePath = filePath.trim();
             FileWriter fw = new FileWriter(path + filePath + ".txt");
             PrintWriter pw = new PrintWriter(fw);
 
-            for (int i = 0; i < data.length; i++){
-                pw.print(data[i] + " ");
-            }
+            pw.print(data);
             pw.close();
 
         } catch (IOException e) {
