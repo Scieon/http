@@ -7,8 +7,11 @@ public class Httpfs {
 
     private final String HTTP_ERROR_404 = "HTTP/1.1 404 not found\r\n";
     private final String HTTP_SUCCESS_200 = "HTTP/1.1 200 OK\r\n";
+    private final String HTTP_FORBIDDEN_203 = "HTTP/1.1 403 Forbidden\r\n";
     private boolean debug = false;
-    private int port = 999; // todo change to 8080 for submission
+    private boolean secure = true;
+    private boolean endRequest = false;
+    private int port = 8080;
     private String path = "./data/";
 
     public static void main(String[] args) throws IOException {
@@ -50,7 +53,6 @@ public class Httpfs {
         System.out.println("Server is running!");
 
         while (true) {
-            StringBuilder payload = new StringBuilder();
             String request = "";
 
             socketConnection = serverSocket.accept();
@@ -62,40 +64,52 @@ public class Httpfs {
 
             while (line != null && !line.isEmpty()) {
                 if (line.contains("GET") || line.contains("POST")) {
-//                    System.out.println(line);
                     if (line.contains("GET")) {
                         request = "GET";
                     } else if (line.contains("POST")) {
                         request = "POST";
                     }
                     urlPath = line.substring(line.indexOf("/") + 1, line.indexOf("HTTP/"));
-//                    System.out.println(urlPath);
+                    secure = isSecure(line, urlPath);
                 }
+                System.out.println(line);
                 line = reader.readLine();
-
             }
 
-            if (request.equals("GET")) {
-                if (urlPath != null && !urlPath.equals(" ")) {
-                    handleGetPath(out, urlPath);
-                    socketConnection.close();
-                } else if (urlPath != null && urlPath.equals(" ")) {
-                    handleDefaultGet(out);
+            if(!secure) {
+                 handleSecurity(out); 
+                 socketConnection.close();
+             } else {
+                if (request.equals("GET")) {
+                    if (urlPath != null && !urlPath.equals(" ")) {
+                        handleGetPath(out, urlPath);
+                        socketConnection.close();
+                    } else if (urlPath != null && urlPath.equals(" ")) {
+                        handleDefaultGet(out);
+                        socketConnection.close();
+                    }
+                }
+
+                if (request.equals("POST")) {
+                    handlePostPath(out, urlPath);
                     socketConnection.close();
                 }
-            }
-
-            if (request.equals("POST")) {
-                System.out.println("Payload data is: " + payload.toString());
-
-                // Parse the payload for body
-
-                // Overwrite or create new file with body
-
-                // Close socket (Make sure to return status code)
-                socketConnection.close();
             }
         }
+    }
+
+    private boolean isSecure(String line, String urlPath) {
+        if (line.contains("..") || urlPath.contains("/")) {
+            return false;
+        }
+        return true;
+    }
+
+    private void handleSecurity(PrintWriter out) {
+        out.print(HTTP_FORBIDDEN_203);
+        out.print("\r\nYou do not have security access.");
+        out.print("\r\n");
+        out.println();
     }
 
     private List<String> listFilesForFolder(final File folder, List<String> fileList) {
@@ -111,6 +125,12 @@ public class Httpfs {
         return fileList;
     }
 
+    /**
+     * Handles standard GET 
+     *
+     * @param out - Output Stream 
+     * @return a list of files within the specified directory
+     */
     private void handleDefaultGet(PrintWriter out) {
         File folder = new File(path);
         List<String> fileList = new ArrayList<>();
@@ -118,9 +138,8 @@ public class Httpfs {
 
         out.print(HTTP_SUCCESS_200);
 
-        // Output all files found
+            // Output all files found
         for (String file : fileList) {
-//            System.out.println(file);
             out.print("\r\n" + file);
         }
 
@@ -197,6 +216,53 @@ public class Httpfs {
         } catch (FileNotFoundException e) {
             if (debug) {
                 System.out.println("File '" + filePath + "' was not found.");
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Handles POST request
+     *
+     * @param out     output stream
+     * @param urlPath file path resource
+     */
+    private void handlePostPath(PrintWriter out, String urlPath){
+        String[] data = {"does", "it", "override"};
+
+        if (writeFileContent(data, urlPath)) {
+            out.print(HTTP_SUCCESS_200);
+            out.print("\r\n");
+            out.println();
+        } else {
+            out.print(HTTP_ERROR_404);
+            out.print("\r\n");
+            out.println();
+        }
+    }
+
+    /**
+     * Writes content to a file
+     *
+     * @param data - Message body content of request 
+     * @param filePath - Path of url
+     * @return true if file exists
+     */
+    private boolean writeFileContent(String[] data, String filePath) {
+        try {
+            filePath = filePath.trim();
+            FileWriter fw = new FileWriter(path + filePath + ".txt");
+            PrintWriter pw = new PrintWriter(fw);
+
+            for (int i = 0; i < data.length; i++){
+                pw.print(data[i] + " ");
+            }
+            pw.close();
+
+        } catch (IOException e) {
+            if (debug) {
+                System.out.println("Error opening " + filePath + ".txt");
             }
             return false;
         }
